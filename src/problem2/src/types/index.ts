@@ -19,3 +19,9 @@ export interface ApiPriceItem {
 	date: string;
 	price: number;
 }
+
+export interface UseSwapFormProps {
+	prices: PriceData;
+	tokens: Token[];
+	isStale: boolean;
+}

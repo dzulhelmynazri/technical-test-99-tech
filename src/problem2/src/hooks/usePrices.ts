@@ -1,30 +1,36 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { toast } from "sonner";
 import type { PriceData, ApiPriceItem } from "@/types";
-
-// Constants
-const FETCH_TIMEOUT_MS = 10000;
-const PRICE_STALE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+import {
+	FETCH_TIMEOUT_MS,
+	PRICE_STALE_THRESHOLD_MS,
+	API_URL,
+} from "@/constants";
 
 export function usePrices() {
 	const [prices, setPrices] = useState<PriceData>({});
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+	const isInitialLoad = useRef(true);
+	const abortControllerRef = useRef<AbortController | null>(null);
 
 	const fetchPrices = useCallback(async () => {
+		const isRefetch = !isInitialLoad.current;
+
+		if (abortControllerRef.current) {
+			abortControllerRef.current.abort();
+		}
+
 		const controller = new AbortController();
+		abortControllerRef.current = controller;
 		const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
 		try {
 			setLoading(true);
 			setError(null);
 
-			const response = await fetch(
-				"https://interview.switcheo.com/prices.json",
-				{ signal: controller.signal }
-			);
-
-			clearTimeout(timeoutId);
+			const response = await fetch(API_URL, { signal: controller.signal });
 
 			if (!response.ok) {
 				throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -36,7 +42,6 @@ export function usePrices() {
 				throw new Error("Invalid API response format");
 			}
 
-			// Process API data - group by currency and use latest price
 			const priceMap = new Map<string, { price: number; date: Date }>();
 
 			for (const item of data as ApiPriceItem[]) {
@@ -64,22 +69,34 @@ export function usePrices() {
 
 			setPrices(priceData);
 			setUpdatedAt(new Date());
-		} catch (err) {
-			if (err instanceof Error && err.name === "AbortError") {
-				setError("Request timed out. Please try again.");
-			} else {
-				const message = err instanceof Error ? err.message : "Unknown error";
-				setError(`Failed to load prices: ${message}`);
+
+			if (isRefetch) {
+				toast.success("Prices updated successfully", {
+					description: `Updated ${Object.keys(priceData).length} token prices`,
+				});
 			}
+		} catch {
+			setError("Failed to load prices");
 			setPrices({});
+
+			if (isRefetch) {
+				toast.error("Failed to load prices");
+			}
 		} finally {
 			setLoading(false);
 			clearTimeout(timeoutId);
+			isInitialLoad.current = false;
 		}
 	}, []);
 
 	useEffect(() => {
 		fetchPrices();
+
+		return () => {
+			if (abortControllerRef.current) {
+				abortControllerRef.current.abort();
+			}
+		};
 	}, [fetchPrices]);
 
 	const isStale = useMemo(() => {
@@ -89,4 +106,3 @@ export function usePrices() {
 
 	return { prices, loading, error, updatedAt, isStale, refetch: fetchPrices };
 }
-

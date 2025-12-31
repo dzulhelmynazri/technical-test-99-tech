@@ -15,7 +15,6 @@ import { ExchangeRateDisplay } from "./SwapForm/ExchangeRateDisplay";
 export function SwapForm() {
 	const { prices, loading, updatedAt, isStale, refetch } = usePrices();
 
-	// Get sorted token list
 	const tokens = useMemo(() => {
 		return transformPricesToTokens(prices);
 	}, [prices]);
@@ -31,15 +30,14 @@ export function SwapForm() {
 		exchangeRate,
 		availableToTokens,
 		availableFromTokens,
+		isProcessing,
 		handleFromAmountChange,
 		handleSwap,
 		handleSubmit,
 	} = useSwapForm({ prices, tokens, isStale });
 
-	// Loading state
 	if (loading) return <LoadingState />;
 
-	// Error state
 	if (tokens.length === 0) {
 		return <ErrorState onRetry={refetch} />;
 	}
@@ -64,7 +62,6 @@ export function SwapForm() {
 						onTokenChange={setFromToken}
 					/>
 
-					{/* Swap Button */}
 					<div className="flex justify-center">
 						<Button
 							type="button"
@@ -87,7 +84,6 @@ export function SwapForm() {
 						onTokenChange={setToToken}
 					/>
 
-					{/* Exchange Rate Info */}
 					{exchangeRate !== null && fromToken && toToken && (
 						<ExchangeRateDisplay
 							fromToken={fromToken}
@@ -96,16 +92,19 @@ export function SwapForm() {
 						/>
 					)}
 
-					{/* Submit Button */}
 					<Button
 						onClick={handleSubmit}
 						className="w-full cursor-pointer"
 						size="lg"
 						disabled={
-							!fromAmount || !!fromAmountError || !fromToken || !toToken
+							isProcessing ||
+							!fromAmount ||
+							!!fromAmountError ||
+							!fromToken ||
+							!toToken
 						}
 					>
-						Swap
+						{isProcessing ? "Swapping..." : "Swap"}
 					</Button>
 				</div>
 			</CardContent>

@@ -1,25 +1,23 @@
 import { useState, useEffect, useMemo } from "react";
-import type { Token, PriceData } from "@/types";
+import { toast } from "sonner";
+import type { UseSwapFormProps } from "@/types";
 import { useDebounce } from "./useDebounce";
-import { calculateAmount, validateAmount, calculateExchangeRate } from "@/utils/currency";
+import {
+	calculateAmount,
+	validateAmount,
+	calculateExchangeRate,
+} from "@/utils/currency";
 import { DEBOUNCE_MS, DISPLAY_PRECISION } from "@/constants";
-
-interface UseSwapFormProps {
-	prices: PriceData;
-	tokens: Token[];
-	isStale: boolean;
-}
 
 export function useSwapForm({ prices, tokens, isStale }: UseSwapFormProps) {
 	const [fromToken, setFromToken] = useState("");
 	const [toToken, setToToken] = useState("");
 	const [fromAmount, setFromAmount] = useState("");
 	const [fromAmountError, setFromAmountError] = useState<string | undefined>();
+	const [isProcessing, setIsProcessing] = useState(false);
 
-	// Debounce the input for smoother UX
 	const debouncedFromAmount = useDebounce(fromAmount, DEBOUNCE_MS);
 
-	// Initialize default tokens
 	useEffect(() => {
 		if (tokens.length >= 2 && !fromToken && !toToken) {
 			setFromToken(tokens[0].symbol);
@@ -27,70 +25,75 @@ export function useSwapForm({ prices, tokens, isStale }: UseSwapFormProps) {
 		}
 	}, [tokens, fromToken, toToken]);
 
-	// Calculate exchange rate
-	const exchangeRate = useMemo(() => {
-		return calculateExchangeRate(prices[fromToken], prices[toToken]);
-	}, [fromToken, toToken, prices]);
+	const exchangeRate = useMemo(
+		() => calculateExchangeRate(prices[fromToken], prices[toToken]),
+		[fromToken, toToken, prices]
+	);
 
-	// Calculate toAmount based on fromAmount (single direction)
-	const toAmount = useMemo(() => {
-		return calculateAmount(debouncedFromAmount, exchangeRate);
-	}, [debouncedFromAmount, exchangeRate]);
+	const toAmount = useMemo(
+		() => calculateAmount(debouncedFromAmount, exchangeRate),
+		[debouncedFromAmount, exchangeRate]
+	);
 
-	// Validate fromAmount
 	useEffect(() => {
 		setFromAmountError(validateAmount(fromAmount));
 	}, [fromAmount]);
 
-	// Handle input changes
+	const availableToTokens = useMemo(
+		() => tokens.filter((t) => t.symbol !== fromToken),
+		[tokens, fromToken]
+	);
+
+	const availableFromTokens = useMemo(
+		() => tokens.filter((t) => t.symbol !== toToken),
+		[tokens, toToken]
+	);
+
 	const handleFromAmountChange = (value: string) => {
-		// Allow empty, numbers, and decimal point
 		if (value === "" || /^\d*\.?\d*$/.test(value)) {
 			setFromAmount(value);
 		}
 	};
 
-	// Handle token swap
 	const handleSwap = () => {
-		// Swap tokens only - amounts will recalculate automatically
-		const tempToken = fromToken;
 		setFromToken(toToken);
-		setToToken(tempToken);
+		setToToken(fromToken);
 	};
 
-	// Filter available tokens for "to" selector (exclude selected "from" token)
-	const availableToTokens = useMemo(() => {
-		return tokens.filter((t) => t.symbol !== fromToken);
-	}, [tokens, fromToken]);
-
-	const availableFromTokens = useMemo(() => {
-		return tokens.filter((t) => t.symbol !== toToken);
-	}, [tokens, toToken]);
-
-	// Handle submission
-	const handleSubmit = () => {
+	const handleSubmit = async () => {
 		if (!fromAmount || parseFloat(fromAmount) <= 0) {
 			setFromAmountError("Please enter a valid amount");
+			toast.error("Please enter a valid amount");
 			return;
 		}
 
-		if (fromAmountError) return;
+		if (fromAmountError || !fromToken || !toToken) return;
 
-		if (!fromToken || !toToken) return;
-
-		if (isStale) {
-			if (!confirm("Exchange rates may be outdated. Continue anyway?")) {
-				return;
-			}
+		if (
+			isStale &&
+			!confirm("Exchange rates may be outdated. Continue anyway?")
+		) {
+			return;
 		}
 
-		alert(
-			`Swap ${fromAmount} ${fromToken} for ${toAmount} ${toToken}?\n\n` +
-				`Exchange Rate: 1 ${fromToken} = ${exchangeRate?.toFixed(
-					DISPLAY_PRECISION
-				)} ${toToken}\n\n` +
-				`This is a demo. No actual swap will occur.`
-		);
+		setIsProcessing(true);
+
+		const toastId = toast.loading("Processing swap...", {
+			description: `Swapping ${fromAmount} ${fromToken} for ${toAmount} ${toToken}`,
+		});
+
+		await new Promise((resolve) => setTimeout(resolve, 2000));
+
+		toast.dismiss(toastId);
+		toast.success("Swap completed successfully!", {
+			description: `You swapped ${fromAmount} ${fromToken} for ${toAmount} ${toToken}\nExchange Rate: 1 ${fromToken} = ${exchangeRate?.toFixed(
+				DISPLAY_PRECISION
+			)} ${toToken}`,
+			duration: 5000,
+		});
+
+		setFromAmount("");
+		setIsProcessing(false);
 	};
 
 	return {
@@ -104,9 +107,9 @@ export function useSwapForm({ prices, tokens, isStale }: UseSwapFormProps) {
 		exchangeRate,
 		availableToTokens,
 		availableFromTokens,
+		isProcessing,
 		handleFromAmountChange,
 		handleSwap,
 		handleSubmit,
 	};
 }
-

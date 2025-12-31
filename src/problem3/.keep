@@ -43,11 +43,27 @@
 //------------------------------------------------------------------------------------------------
 
 // 7. Incorrect filter logic
-if (balance.amount <= 0) {
-	return true;
-}
+// if (balance.amount <= 0) {
+// 	return true;
+// }
 
-// balance.amount > 0
+// - balance.amount > 0
+
+//------------------------------------------------------------------------------------------------
+
+// 8. Missing exhaustiveness & fallback handling
+// Unknown blockchain values silently get -99
+
+// - centralize config.
+
+//------------------------------------------------------------------------------------------------
+
+// 9. useMemo misused
+// useMemo wraps buggy logic
+
+// - correctness first, memoization second.
+
+//------------------------------------------------------------------------------------------------
 
 // Refactor code below:
 
