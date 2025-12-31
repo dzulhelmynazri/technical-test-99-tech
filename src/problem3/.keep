@@ -1,0 +1,102 @@
+// 1. any type usage
+// (blockchain: any)
+
+// - use a string union or enum.
+
+//------------------------------------------------------------------------------------------------
+
+// 2. Logical bug in filter:
+// const balancePriority = getPriority(balance.blockchain);
+// if (lhsPriority > -99) {
+
+// - lhsPriority is undefined
+// - Should use balancePriority
+
+//------------------------------------------------------------------------------------------------
+
+// 3. prices included in useMemo dependency but unused
+// useMemo(() => { ... }, [balances, prices])
+
+// - remove prices from dependency array.
+
+//------------------------------------------------------------------------------------------------
+
+// 4. formattedBalances is computed but never used
+// const formattedBalances = sortedBalances.map(...)
+
+// - remove it.
+
+//------------------------------------------------------------------------------------------------
+
+// 5. Using array index as React key
+// key={index}
+
+// - use the currency as key.
+
+//------------------------------------------------------------------------------------------------
+
+// 6. Implicit mutation risk with .sort
+// balances.filter(...).sort(...)
+
+// - Always sort a copied array.
+
+//------------------------------------------------------------------------------------------------
+
+// 7. Incorrect filter logic
+if (balance.amount <= 0) {
+	return true;
+}
+
+// balance.amount > 0
+
+// Refactor code below:
+
+// type Blockchain =
+//   | 'Osmosis'
+//   | 'Ethereum'
+//   | 'Arbitrum'
+//   | 'Zilliqa'
+//   | 'Neo';
+
+// const PRIORITY_MAP: Record<Blockchain, number> = {
+//   Osmosis: 100,
+//   Ethereum: 50,
+//   Arbitrum: 30,
+//   Zilliqa: 20,
+//   Neo: 20,
+// };
+
+// const WalletPage: React.FC<Props> = ({ children, ...rest }) => {
+//   const balances = useWalletBalances();
+//   const prices = usePrices();
+
+//   const sortedBalances = useMemo(() => {
+//     return balances
+//       .filter(
+//         (b) =>
+//           b.amount > 0 &&
+//           PRIORITY_MAP[b.blockchain as Blockchain] !== undefined
+//       )
+//       .map((b) => ({
+//         ...b,
+//         priority: PRIORITY_MAP[b.blockchain as Blockchain],
+//       }))
+//       .sort((a, b) => b.priority - a.priority);
+//   }, [balances]);
+
+//   const rows = sortedBalances.map((balance) => {
+//     const usdValue = prices[balance.currency] * balance.amount;
+
+//     return (
+//       <WalletRow
+//         key={balance.currency}
+//         className={classes.row}
+//         amount={balance.amount}
+//         usdValue={usdValue}
+//         formattedAmount={balance.amount.toFixed()}
+//       />
+//     );
+//   });
+
+//   return <div {...rest}>{rows}</div>;
+// };
